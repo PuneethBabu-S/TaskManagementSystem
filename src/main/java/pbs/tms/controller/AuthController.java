@@ -2,9 +2,9 @@ package pbs.tms.controller;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
+import pbs.tms.dto.LoginRequest;
 import pbs.tms.entity.User;
 import pbs.tms.service.UserService;
 import pbs.tms.utility.JwtUtil;
@@ -33,12 +33,14 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<String> login(@RequestBody User user) {
-        Optional<User> dbUser = userService.getUserByUsername(user.getUsername());
-        if (dbUser.isPresent() && passwordEncoder.matches(user.getPassword(), dbUser.get().getPassword())) {
-            String token = jwtUtil.generateToken(user.getUsername());
+    public ResponseEntity<String> login(@RequestBody LoginRequest loginRequest) {
+        Optional<User> dbUser = userService.getUserByUsername(loginRequest.getUsername());
+
+        if (dbUser.isPresent() && passwordEncoder.matches(loginRequest.getPassword(), dbUser.get().getPassword())) {
+            String token = jwtUtil.generateToken(loginRequest.getUsername());
             return ResponseEntity.ok(token);
         }
+
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid credentials");
     }
 }

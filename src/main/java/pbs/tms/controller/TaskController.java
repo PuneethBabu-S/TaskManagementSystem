@@ -1,7 +1,10 @@
 package pbs.tms.controller;
 
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import pbs.tms.dto.TaskDTO;
 import pbs.tms.entity.Task;
 import pbs.tms.entity.User;
 import pbs.tms.repository.TaskRepository;
@@ -10,6 +13,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+import pbs.tms.service.TaskService;
 
 import java.util.List;
 import java.util.Optional;
@@ -19,23 +23,17 @@ import java.util.Optional;
 @RequestMapping("/tasks")
 public class TaskController {
 
-    private final TaskRepository taskRepository;
-    private final UserRepository userRepository;
-
-    public TaskController(TaskRepository taskRepository, UserRepository userRepository) {
-        this.taskRepository = taskRepository;
-        this.userRepository = userRepository;
-    }
+    @Autowired
+    private TaskRepository taskRepository;
+    @Autowired
+    private UserRepository userRepository;
+    @Autowired
+    private TaskService taskService;
 
     // 📝 Create a New Task
     @PostMapping("/create")
-    public Task createTask(@RequestBody Task task) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String username = authentication.getName();
-        Optional<User> user = userRepository.findByUsername(username);
-
-        user.ifPresent(task::setAssignedUser);
-        return taskRepository.save(task);
+    public ResponseEntity<TaskDTO> createTask(@RequestBody Task task) {
+        return ResponseEntity.ok(taskService.createTask(task));
     }
 
     // 📌 Get All Tasks for Logged-In User
@@ -48,22 +46,10 @@ public class TaskController {
         return user.map(taskRepository::findByAssignedUser).orElse(List.of());
     }
 
-    // ✏️ Update a Task (Only Assigned User or Admin)
+    // ️ Update a Task (Only Assigned User or Admin)
     @PutMapping("update/{id}")
-    public Task updateTask(@PathVariable Long id, @RequestBody Task updatedTask) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String username = authentication.getName();
-        Optional<User> user = userRepository.findByUsername(username);
-
-        return taskRepository.findById(id).map(task -> {
-            if (task.getAssignedUser().equals(user.orElse(null))) {
-                task.setTitle(updatedTask.getTitle());
-                task.setDescription(updatedTask.getDescription());
-                task.setStatus(updatedTask.getStatus());
-                return taskRepository.save(task);
-            }
-            throw new RuntimeException("You don't have permission to edit this task.");
-        }).orElseThrow(() -> new RuntimeException("Task not found."));
+    public ResponseEntity<TaskDTO> updateTask(@PathVariable Long id, @RequestBody Task updatedTask) {
+        return ResponseEntity.ok(taskService.updateTask(id, updatedTask));
     }
 
     // 🗑 Delete a Task (Only Assigned User or Admin)

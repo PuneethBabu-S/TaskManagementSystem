@@ -26,23 +26,17 @@ public class TaskServiceImpl implements TaskService {
 
     @Override
     public TaskDTO createTask(Task task) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String username = authentication.getName();
-        Optional<User> user = userRepository.findByUsername(username);
-
+        Optional<User> user = Optional.ofNullable(getUser());
         user.ifPresent(task::setAssignedUser);
         taskRepository.save(task);
         return new TaskDTO(task.getId(), task.getTitle(), task.getDescription(), task.getStatus(), task.getAssignedUser().getUsername());
-
     }
 
     @Override
     public TaskDTO updateTask(Long id,Task task) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String username = authentication.getName();
-        Optional<User> user = userRepository.findByUsername(username);
+        Optional<User> user = Optional.ofNullable(getUser());
         Task updatedTask = taskRepository.findById(id).orElseThrow(() -> new RuntimeException("Task not found."));
-        if (user.isPresent() && (updatedTask.getAssignedUser().getUsername().equals(username) || user.get().getRole() == Role.ADMIN)) {
+        if (user.isPresent() && (updatedTask.getAssignedUser().getUsername().equals(user.get().getUsername()) || user.get().getRole() == Role.ADMIN)) {
             updatedTask.setTitle(task.getTitle());
             updatedTask.setDescription(task.getDescription());
             updatedTask.setStatus(task.getStatus());
@@ -53,22 +47,46 @@ public class TaskServiceImpl implements TaskService {
     }
 
     @Override
-    public TaskDTO deleteTask(Task task) {
-        return null;
+    public String deleteTask(Long id) {
+        Optional<User> user = Optional.ofNullable(getUser());
+        Task taskToDelete = taskRepository.findById(id).orElseThrow(() -> new RuntimeException("Task not found."));
+        if (user.isPresent() && (taskToDelete.getAssignedUser().getUsername().equals(user.get().getUsername()) || user.get().getRole() == Role.ADMIN)){
+            taskRepository.delete(taskToDelete);
+            return "Task deleted successfully.";
+        }
+        throw new RuntimeException("You don't have permission to delete this task.");
     }
 
     @Override
     public TaskDTO getTask(Long id) {
-        return null;
+        Optional<Task> task = taskRepository.findById(id);
+        if (task.isPresent() && (task.get().getAssignedUser().getUsername().equals(getUser().getUsername()) || getUser().getRole() == Role.ADMIN)) {
+            return new TaskDTO(task.get().getId(), task.get().getTitle(), task.get().getDescription(), task.get().getStatus(), task.get().getAssignedUser().getUsername());
+        }
+        throw new RuntimeException("Task not found.");
     }
 
     @Override
-    public List<TaskDTO> getUserTasks(Long id) {
-        return List.of();
+    public List<TaskDTO> getUserTasks() {
+        Optional<User> user = Optional.ofNullable(getUser());
+        if (user.isPresent()) {
+            List<Task> tasks = taskRepository.findByAssignedUserId(user.get().getId());
+            return tasks.stream().map(task -> new TaskDTO(task.getId(), task.getTitle(), task.getDescription(), task.getStatus(), task.getAssignedUser().getUsername())).toList();
+        }
+        throw new RuntimeException("User not found.");
     }
 
     @Override
     public List<TaskDTO> getAllTasks() {
-        return List.of();
+        if (getUser().getRole() == Role.ADMIN) {
+            return taskRepository.findAll().stream().map(task -> new TaskDTO(task.getId(), task.getTitle(), task.getDescription(), task.getStatus(), task.getAssignedUser().getUsername())).toList();
+        }
+        throw new RuntimeException("You don't have permission to view all tasks.");
+    }
+
+    @Override
+    public User getUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        return userRepository.findByUsername(authentication.getName()).orElse(null);
     }
 }

@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.*;
 import pbs.tms.service.TaskService;
 import java.util.List;
 
+@CrossOrigin(origins = "*")
 @SecurityRequirement(name = "Bearer Authentication")
 @RestController
 @RequestMapping("/tasks")
